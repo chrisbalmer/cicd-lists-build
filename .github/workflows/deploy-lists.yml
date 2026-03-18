@@ -1,0 +1,33 @@
+name: Deploy Lists
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Lists/**'
+
+jobs:
+  deploy:
+    name: Upload Changed Lists
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Upload changed lists
+        env:
+          DEMISTO_BASE_URL: ${{ secrets.DEMISTO_BASE_URL }}
+          DEMISTO_API_KEY: ${{ secrets.DEMISTO_API_KEY }}
+          XSIAM_AUTH_ID: ${{ secrets.XSIAM_AUTH_ID }}
+        run: python scripts/upload.py

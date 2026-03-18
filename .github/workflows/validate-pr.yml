@@ -1,0 +1,63 @@
+name: Validate Lists (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Lists/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate Changed Lists
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Get changed list directories
+        id: changed
+        run: |
+          # Find list directories with changes in this PR
+          CHANGED_DIRS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'Lists/' \
+            | cut -d'/' -f1-2 \
+            | sort -u \
+            | tr '\n' ' ')
+          echo "dirs=${CHANGED_DIRS}" >> "$GITHUB_OUTPUT"
+          echo "Changed list directories: ${CHANGED_DIRS}"
+
+      - name: Validate lists
+        if: steps.changed.outputs.dirs != ''
+        run: python scripts/validate.py ${{ steps.changed.outputs.dirs }}
+
+  auto-merge:
+    name: Auto-merge PR
+    needs: validate
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Enable auto-merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'squash'
+            });

@@ -1,0 +1,4 @@
+id: sample-custom-list
+name: Sample Custom List
+type: custom
+description: A sample custom list validated by a Python script.

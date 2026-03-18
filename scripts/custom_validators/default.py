@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Default custom validator for XSOAR/XSIAM lists.
+
+Performs basic checks: file is readable and non-empty.
+Create list-specific validators by naming them <list-directory-name>.py
+in this directory.
+"""
+
+import sys
+from pathlib import Path
+
+
+def validate(file_path: Path) -> bool:
+    """Run default validation checks on the file."""
+    if not file_path.exists():
+        print(f"FAIL: File does not exist: {file_path}")
+        return False
+
+    content = file_path.read_text(encoding="utf-8")
+
+    if not content.strip():
+        print(f"FAIL: File is empty: {file_path}")
+        return False
+
+    # Check for null bytes (binary content in a text list)
+    if "\x00" in content:
+        print(f"FAIL: File contains null bytes (possibly binary): {file_path}")
+        return False
+
+    print(f"PASS: Basic validation passed for {file_path}")
+    return True
+
+
+def main():
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <file_path>")
+        sys.exit(1)
+
+    file_path = Path(sys.argv[1])
+    if not validate(file_path):
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
