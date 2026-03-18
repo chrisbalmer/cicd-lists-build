@@ -31,6 +31,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          # Shallow clone with 2 commits so upload.py can diff HEAD~1.
+          # This assumes PRs are squash-merged (single commit per merge).
           fetch-depth: 2
 
       - name: Set up Python

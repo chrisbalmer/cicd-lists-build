@@ -16,7 +16,11 @@ def validate(file_path: Path) -> bool:
         print(f"FAIL: File does not exist: {file_path}")
         return False
 
-    content = file_path.read_text(encoding="utf-8")
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        print(f"FAIL: File is not valid UTF-8 (possibly binary): {file_path}")
+        return False
 
     if not content.strip():
         print(f"FAIL: File is empty: {file_path}")

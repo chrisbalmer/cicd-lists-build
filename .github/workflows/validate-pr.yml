@@ -31,9 +31,11 @@ jobs:
 
       - name: Get changed list directories
         id: changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Find list directories with changes in this PR
-          CHANGED_DIRS=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'Lists/' \
+          CHANGED_DIRS=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- 'Lists/' \
             | cut -d'/' -f1-2 \
             | sort -u \
             | tr '\n' ' ')
@@ -42,7 +44,9 @@ jobs:
 
       - name: Validate lists
         if: steps.changed.outputs.dirs != ''
-        run: python scripts/validate.py ${{ steps.changed.outputs.dirs }}
+        env:
+          CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
+        run: python scripts/validate.py $CHANGED_DIRS
 
   auto-merge:
     name: Auto-merge PR

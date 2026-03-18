@@ -108,8 +108,16 @@ def validate_list(list_dir: Path) -> bool:
         return True
 
     metadata = load_metadata(metadata_path)
-    list_type = metadata.get("type", "").lower()
-    list_name = metadata.get("name", list_dir.name)
+
+    # Validate required metadata fields
+    required_fields = ["id", "name", "type"]
+    missing = [f for f in required_fields if f not in metadata]
+    if missing:
+        print(f"FAIL: {metadata_path} is missing required fields: {', '.join(missing)}")
+        return False
+
+    list_type = metadata["type"].lower()
+    list_name = metadata["name"]
 
     print(f"Validating list: {list_name} (type: {list_type})")
 
