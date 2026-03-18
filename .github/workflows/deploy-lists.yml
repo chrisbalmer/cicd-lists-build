@@ -12,6 +12,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check required secrets
+        env:
+          HAS_DEMISTO_BASE_URL: ${{ secrets.DEMISTO_BASE_URL != '' }}
+          HAS_DEMISTO_API_KEY: ${{ secrets.DEMISTO_API_KEY != '' }}
+          HAS_XSIAM_AUTH_ID: ${{ secrets.XSIAM_AUTH_ID != '' }}
+        run: |
+          MISSING=""
+          if [ "$HAS_DEMISTO_BASE_URL" != "true" ]; then MISSING="$MISSING DEMISTO_BASE_URL"; fi
+          if [ "$HAS_DEMISTO_API_KEY" != "true" ]; then MISSING="$MISSING DEMISTO_API_KEY"; fi
+          if [ "$HAS_XSIAM_AUTH_ID" != "true" ]; then MISSING="$MISSING XSIAM_AUTH_ID"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+          echo "All required secrets are configured."
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
