@@ -1,4 +1,4 @@
-name: Validate Lists (PR)
+name: Validate and Deploy Lists
 
 on:
   pull_request:
@@ -51,8 +51,12 @@ jobs:
     runs-on: ubuntu-latest
     if: success()
 
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
+
     steps:
-      - name: Enable auto-merge
+      - name: Merge PR
+        id: merge
         uses: actions/github-script@v7
         with:
           script: |
@@ -62,3 +66,50 @@ jobs:
               pull_number: context.issue.number,
               merge_method: 'squash'
             });
+            core.setOutput('merged', 'true');
+
+  deploy:
+    name: Upload Changed Lists
+    needs: auto-merge
+    runs-on: ubuntu-latest
+    if: needs.auto-merge.outputs.merged == 'true'
+
+    steps:
+      - name: Check required secrets
+        env:
+          HAS_DEMISTO_BASE_URL: ${{ secrets.DEMISTO_BASE_URL != '' }}
+          HAS_DEMISTO_API_KEY: ${{ secrets.DEMISTO_API_KEY != '' }}
+          HAS_XSIAM_AUTH_ID: ${{ secrets.XSIAM_AUTH_ID != '' }}
+        run: |
+          MISSING=""
+          if [ "$HAS_DEMISTO_BASE_URL" != "true" ]; then MISSING="$MISSING DEMISTO_BASE_URL"; fi
+          if [ "$HAS_DEMISTO_API_KEY" != "true" ]; then MISSING="$MISSING DEMISTO_API_KEY"; fi
+          if [ "$HAS_XSIAM_AUTH_ID" != "true" ]; then MISSING="$MISSING XSIAM_AUTH_ID"; fi
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+          echo "All required secrets are configured."
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          # Shallow clone with 2 commits so upload.py can diff HEAD~1.
+          # This assumes PRs are squash-merged (single commit per merge).
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Upload changed lists
+        env:
+          DEMISTO_BASE_URL: ${{ secrets.DEMISTO_BASE_URL }}
+          DEMISTO_API_KEY: ${{ secrets.DEMISTO_API_KEY }}
+          XSIAM_AUTH_ID: ${{ secrets.XSIAM_AUTH_ID }}
+        run: python scripts/upload.py
