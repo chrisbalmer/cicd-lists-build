@@ -19,3 +19,6 @@ quinn_thomas|quinn@example.com,qthomas@corp.net|beta
 rachel_wang|rwang@example.com,rachel.wang@corp.net,rwang@freelance.dev|alpha
 sam_harris|sam@example.com|delta
 tina_clark|tina.clark@example.com,tclark@startup.io|gamma
+uma_foster|uma@example.com,ufoster@corp.net|alpha
+victor_diaz|vdiaz@example.com|delta
+wendy_park|wendy.park@example.com,wpark@startup.io,wendy@freelance.dev|beta
