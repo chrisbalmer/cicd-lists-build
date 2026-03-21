@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'Lists/**'
+      - 'Packs/**'
 
 permissions:
   contents: write
@@ -29,24 +29,21 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Get changed list directories
+      - name: Get changed files
         id: changed
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          # Find list directories with changes in this PR
-          CHANGED_DIRS=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- 'Lists/' \
-            | cut -d'/' -f1-2 \
-            | sort -u \
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- 'Packs/' \
             | tr '\n' ' ')
-          echo "dirs=${CHANGED_DIRS}" >> "$GITHUB_OUTPUT"
-          echo "Changed list directories: ${CHANGED_DIRS}"
+          echo "files=${CHANGED_FILES}" >> "$GITHUB_OUTPUT"
+          echo "Changed files: ${CHANGED_FILES}"
 
       - name: Validate lists
-        if: steps.changed.outputs.dirs != ''
+        if: steps.changed.outputs.files != ''
         env:
-          CHANGED_DIRS: ${{ steps.changed.outputs.dirs }}
-        run: python scripts/validate.py $CHANGED_DIRS
+          CHANGED_FILES: ${{ steps.changed.outputs.files }}
+        run: python scripts/validate.py $CHANGED_FILES
 
   auto-merge:
     name: Auto-merge PR

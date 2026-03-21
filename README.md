@@ -1,66 +1,78 @@
 # cicd-lists-build
 
-CI/CD pipeline for managing XSOAR/XSIAM lists.
+CI/CD pipeline for managing XSOAR/XSIAM lists via Git.
 
 ## Project Structure
 
 ```
-Lists/
-  <list-name>/
-    metadata.yml     # List metadata (id, name, type, description)
-    data.<ext>       # Raw list data file (json, csv, or txt)
+Packs/
+  <PackName>/
+    Lists/
+      <ListName>/
+        <ListName>.json         # demisto-sdk metadata (XSOAR/XSIAM format)
+        <ListName>_data.<ext>   # Raw list data file
+        metadata.yaml           # CI/CD validation config
 scripts/
-  validate.py        # Main validation script
-  upload.py          # Deploy script using demisto-sdk
-  custom_validators/ # Custom validation scripts per list
-    default.py       # Default custom validator
+  validate.py                   # Main validation script
+  upload.py                     # Deploy script using demisto-sdk
+  custom_validators/            # Custom validation scripts
+    default.py                  # Default custom validator
 .github/workflows/
-  validate-pr.yml    # PR validation + auto-merge
-  deploy-lists.yml   # Deploy on merge to main
+  validate-pr.yml               # PR validation + auto-merge
+  deploy-lists.yml              # Deploy on merge to main
 ```
 
-## List Types
+## metadata.yaml
 
-Each list directory contains a `metadata.yml` and a data file. The `type` field
-in metadata determines which validator runs:
+Each list directory can optionally contain a `metadata.yaml` to configure CI/CD
+validation. If omitted, the validator falls back to the `name` and `type` from
+`<ListName>.json`.
 
-| Type     | Validator                                    |
-|----------|----------------------------------------------|
-| `json`   | Checks the data file is valid JSON           |
-| `csv`    | Checks the data file is valid CSV with consistent columns |
-| `custom` | Runs a Python script from `scripts/custom_validators/` |
+| Field       | Required | Description |
+|-------------|----------|-------------|
+| `name`      | No       | Display name for validation output (falls back to `.json` name) |
+| `type`      | No       | Validation type: `json`, `csv`, or `plain_text` (falls back to `.json` type) |
+| `validator` | No       | Name of a custom validator in `scripts/custom_validators/` |
+
+When `validator` is set, it overrides the type-based validation. This is useful
+when the data format needs specific handling (e.g., pipe-delimited CSV).
+
+```yaml
+# Standard CSV validation
+name: Blocked IPs
+type: csv
+
+# CSV with a custom pipe-delimiter validator
+name: Firewall Rules
+type: csv
+validator: pipe_delimited
+```
 
 ## Adding a New List
 
-1. Create a directory under `Lists/` (e.g., `Lists/my-ip-list/`)
-2. Add `metadata.yml`:
-   ```yaml
-   id: my-ip-list
-   name: My IP List
-   type: json
-   description: List of blocked IPs.
-   ```
-3. Add the data file (e.g., `data.json`)
-4. Open a PR to `main`
+1. Create the list directory: `Packs/<PackName>/Lists/<ListName>/`
+2. Add the demisto-sdk metadata file: `<ListName>.json`
+3. Add the data file: `<ListName>_data.<ext>`
+4. Optionally add `metadata.yaml` to override validation type or use a custom validator
+5. Open a PR to `main`
 
 ## Custom Validators
 
-For lists with `type: custom`, the validation script looks for
-`scripts/custom_validators/<list-directory-name>.py`. If not found, it falls
-back to `scripts/custom_validators/default.py`.
+Custom validators live in `scripts/custom_validators/` and are referenced by
+name in `metadata.yaml` via the `validator` field.
 
-Custom validators receive the data file path as the first argument and must
-exit with code 0 on success or non-zero on failure.
+Each validator receives the data file path as the first argument and must exit
+with code 0 on success or non-zero on failure.
 
 ## CI/CD Workflows
 
 ### PR Validation (`validate-pr.yml`)
-- Triggers on PRs to `main` that modify files under `Lists/`
+- Triggers on PRs to `main` that modify files under `Packs/`
 - Detects which lists changed and validates only those
 - Auto-merges the PR on successful validation
 
 ### Deploy (`deploy-lists.yml`)
-- Triggers on pushes to `main` that modify files under `Lists/`
+- Triggers on pushes to `main` that modify files under `Packs/`
 - Uploads changed lists using `demisto-sdk`
 - Requires three repository secrets:
   - `DEMISTO_BASE_URL` - XSOAR/XSIAM server URL
@@ -71,6 +83,6 @@ exit with code 0 on success or non-zero on failure.
 
 ```bash
 pip install -r requirements.txt
-python scripts/validate.py                          # Validate all lists
-python scripts/validate.py Lists/sample-json-list   # Validate specific list
+python scripts/validate.py                                              # Validate all lists
+python scripts/validate.py Packs/ListManagement/Lists/Aisummary        # Validate specific list
 ```

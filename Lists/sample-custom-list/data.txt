@@ -1,3 +1,0 @@
-entry-one
-entry-two
-entry-three

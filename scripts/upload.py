@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Upload changed XSOAR/XSIAM lists using demisto-sdk.
 
+Detects which list directories changed in the last merge commit and uploads
+them via demisto-sdk. Lists live under Packs/<PackName>/Lists/<ListName>/.
+
 Requires the following environment variables:
   DEMISTO_BASE_URL  - The XSOAR/XSIAM server URL
   DEMISTO_API_KEY   - The API key for authentication
@@ -16,18 +19,18 @@ from pathlib import Path
 def get_changed_lists() -> list[Path]:
     """Get list directories that changed in the last merge commit."""
     result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD~1", "HEAD", "--", "Lists/"],
+        ["git", "diff", "--name-only", "HEAD~1", "HEAD", "--", "Packs/"],
         capture_output=True,
         text=True,
         check=True,
     )
     changed_files = result.stdout.strip().splitlines()
-    # Extract unique list directories
     list_dirs = set()
     for f in changed_files:
         parts = Path(f).parts
-        if len(parts) >= 2 and parts[0] == "Lists":
-            list_dirs.add(Path(parts[0]) / parts[1])
+        # Match Packs/<Pack>/Lists/<ListName>/...
+        if len(parts) >= 4 and parts[0] == "Packs" and parts[2] == "Lists":
+            list_dirs.add(Path(*parts[:4]))
     return sorted(list_dirs)
 
 
@@ -35,12 +38,7 @@ def upload_list(list_dir: Path) -> bool:
     """Upload a single list using demisto-sdk."""
     print(f"Uploading list: {list_dir}")
     result = subprocess.run(
-        [
-            "demisto-sdk",
-            "upload",
-            "-i",
-            str(list_dir),
-        ],
+        ["demisto-sdk", "upload", "-i", str(list_dir)],
         capture_output=True,
         text=True,
     )
@@ -55,7 +53,6 @@ def upload_list(list_dir: Path) -> bool:
 
 
 def main():
-    # Verify required environment variables
     required_vars = ["DEMISTO_BASE_URL", "DEMISTO_API_KEY", "XSIAM_AUTH_ID"]
     missing = [v for v in required_vars if not os.environ.get(v)]
     if missing:

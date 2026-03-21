@@ -1,4 +1,0 @@
-ip,hostname,environment
-10.0.0.1,server-a,production
-10.0.0.2,server-b,staging
-192.168.1.10,workstation-1,development

@@ -2,8 +2,7 @@
 """Default custom validator for XSOAR/XSIAM lists.
 
 Performs basic checks: file is readable and non-empty.
-Create list-specific validators by naming them <list-directory-name>.py
-in this directory.
+Custom validators are referenced by name via the 'validator' field in metadata.yaml.
 """
 
 import sys
