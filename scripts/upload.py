@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Upload changed XSOAR/XSIAM lists using demisto-sdk.
 
-Detects which list directories changed in the last merge commit and uploads
-them via demisto-sdk. Lists live under Packs/<PackName>/Lists/<ListName>/.
+Accepts changed file paths as arguments and resolves them to list directories
+under Packs/<PackName>/Lists/<ListName>/.
 
 Requires the following environment variables:
   DEMISTO_BASE_URL  - The XSOAR/XSIAM server URL
@@ -16,18 +16,11 @@ import sys
 from pathlib import Path
 
 
-def get_changed_lists() -> list[Path]:
-    """Get list directories that changed in the last merge commit."""
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD~1", "HEAD", "--", "Packs/"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    changed_files = result.stdout.strip().splitlines()
+def resolve_list_dirs(paths: list[str]) -> list[Path]:
+    """Resolve file paths to unique list directories."""
     list_dirs = set()
-    for f in changed_files:
-        parts = Path(f).parts
+    for p in paths:
+        parts = Path(p).parts
         # Match Packs/<Pack>/Lists/<ListName>/...
         if len(parts) >= 4 and parts[0] == "Packs" and parts[2] == "Lists":
             list_dirs.add(Path(*parts[:4]))
@@ -59,17 +52,21 @@ def main():
         print(f"Missing required environment variables: {', '.join(missing)}", file=sys.stderr)
         sys.exit(1)
 
-    changed = get_changed_lists()
-    if not changed:
-        print("No lists changed in this commit.")
+    if len(sys.argv) < 2:
+        print("Usage: upload.py <changed_file> [changed_file ...]", file=sys.stderr)
+        sys.exit(1)
+
+    list_dirs = resolve_list_dirs(sys.argv[1:])
+    if not list_dirs:
+        print("No list directories found in the provided paths.")
         sys.exit(0)
 
-    print(f"Found {len(changed)} changed list(s):")
-    for d in changed:
+    print(f"Found {len(list_dirs)} list(s) to upload:")
+    for d in list_dirs:
         print(f"  - {d}")
 
     all_ok = True
-    for list_dir in changed:
+    for list_dir in list_dirs:
         if not upload_list(list_dir):
             all_ok = False
 

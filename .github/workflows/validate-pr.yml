@@ -15,6 +15,9 @@ jobs:
     name: Validate Changed Lists
     runs-on: ubuntu-latest
 
+    outputs:
+      changed_files: ${{ steps.changed.outputs.files }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,34 +48,11 @@ jobs:
           CHANGED_FILES: ${{ steps.changed.outputs.files }}
         run: python scripts/validate.py $CHANGED_FILES
 
-  auto-merge:
-    name: Auto-merge PR
-    needs: validate
-    runs-on: ubuntu-latest
-    if: success()
-
-    outputs:
-      merged: ${{ steps.merge.outputs.merged }}
-
-    steps:
-      - name: Merge PR
-        id: merge
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-              merge_method: 'squash'
-            });
-            core.setOutput('merged', 'true');
-
   deploy:
     name: Upload Changed Lists
-    needs: auto-merge
+    needs: validate
     runs-on: ubuntu-latest
-    if: needs.auto-merge.outputs.merged == 'true'
+    if: success() && needs.validate.outputs.changed_files != ''
 
     steps:
       - name: Check required secrets
@@ -91,13 +71,8 @@ jobs:
           fi
           echo "All required secrets are configured."
 
-      - name: Checkout main
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: main
-          # Shallow clone with 2 commits so upload.py can diff HEAD~1.
-          # This assumes PRs are squash-merged (single commit per merge).
-          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -112,4 +87,23 @@ jobs:
           DEMISTO_BASE_URL: ${{ secrets.DEMISTO_BASE_URL }}
           DEMISTO_API_KEY: ${{ secrets.DEMISTO_API_KEY }}
           XSIAM_AUTH_ID: ${{ secrets.XSIAM_AUTH_ID }}
-        run: python scripts/upload.py
+          CHANGED_FILES: ${{ needs.validate.outputs.changed_files }}
+        run: python scripts/upload.py $CHANGED_FILES
+
+  auto-merge:
+    name: Auto-merge PR
+    needs: [validate, deploy]
+    runs-on: ubuntu-latest
+    if: success()
+
+    steps:
+      - name: Merge PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'squash'
+            });
