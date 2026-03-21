@@ -22,3 +22,6 @@ tina_clark|tina.clark@example.com,tclark@startup.io|gamma
 uma_foster|uma@example.com,ufoster@corp.net|alpha
 victor_diaz|vdiaz@example.com|delta
 wendy_park|wendy.park@example.com,wpark@startup.io,wendy@freelance.dev|beta
+xander_ross|xross@example.com,xander@corp.net|gamma
+yara_singh|yara.singh@example.com|alpha
+zane_miller|zmiller@example.com,zane.miller@startup.io|delta
